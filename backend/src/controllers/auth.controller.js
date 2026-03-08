@@ -12,7 +12,8 @@ const login = asyncHandler(async (req, res) => {
     // Set cookie for better security/convenience
     res.cookie('token', result.token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: true, // Wajib true untuk sameSite: 'none'
+        sameSite: 'none', // Izinkan pengiriman lintas situs (Vercel ke Render)
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 

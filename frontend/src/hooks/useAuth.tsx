@@ -25,16 +25,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = async (data: LoginDto) => {
         const res = await authService.login(data)
+        if (res.token) {
+            localStorage.setItem('token', res.token)
+        }
         setUser(res.user)
     }
 
     const register = async (data: RegisterDto) => {
-        const newUser = await authService.register(data)
+        await authService.register(data)
         // Automatically login after register
         await login({ email: data.email, password: data.password })
     }
 
     const logout = async () => {
+        localStorage.removeItem('token')
         await authService.logout()
         setUser(null)
     }
