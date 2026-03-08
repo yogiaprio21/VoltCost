@@ -9,20 +9,20 @@ const { errorHandler, notFound } = require('./middleware/errorHandler');
 const app = express();
 
 const allowedOrigins = [
-    process.env.FRONTEND_URL,
-    'http://localhost:5173'
-];
+    process.env.FRONTEND_URL?.replace(/\/$/, ""), // Hapus trailing slash jika ada
+    'http://localhost:5173',
+    'https://volt-cost.vercel.app',
+    'https://voltcost.vercel.app'
+].filter(Boolean);
 
 app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Admin-Key']
 }));
+
+app.options('*', cors());
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(cookieParser());
