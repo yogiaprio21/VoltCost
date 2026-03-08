@@ -1,7 +1,8 @@
 FROM node:18-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production || npm install --production
+RUN npm install
 COPY . .
 RUN npx prisma generate
 EXPOSE 3000
