@@ -1,4 +1,5 @@
 const service = require('../services/auth.service');
+const logService = require('../services/log.service');
 const asyncHandler = require('../utils/asyncHandler');
 
 const register = asyncHandler(async (req, res) => {
@@ -15,6 +16,13 @@ const login = asyncHandler(async (req, res) => {
         secure: true, // Wajib true untuk sameSite: 'none'
         sameSite: 'none', // Izinkan pengiriman lintas situs (Vercel ke Render)
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    await logService.createLog({
+        action: 'LOGIN',
+        entity: 'User',
+        entityId: result.user.id,
+        userId: result.user.id
     });
 
     res.json(result);

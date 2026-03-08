@@ -246,7 +246,17 @@ export default function AdminDashboardPage() {
                 <Card>
                     <h3 className="text-lg font-bold mb-6">Aktivitas Sistem</h3>
                     <div className="space-y-4">
-                        {lLoading ? <div className="text-center py-10">Memuat log...</div> : logs.map(log => (
+                        {lLoading ? (
+                            <div className="text-center py-10 text-slate-400">Memuat log...</div>
+                        ) : logs.length === 0 ? (
+                            <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                                <div className="text-slate-300 mb-4 flex justify-center">
+                                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <p className="text-slate-500 font-medium">Belum ada aktivitas sistem tercatat.</p>
+                                <p className="text-slate-400 text-xs mt-1">Semua aktivitas penting akan muncul di sini.</p>
+                            </div>
+                        ) : logs.map(log => (
                             <div key={log.id} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                 <div className={`p-2 rounded-xl ${log.action === 'CREATE' ? 'bg-emerald-100 text-emerald-600' :
                                     log.action === 'UPDATE' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'

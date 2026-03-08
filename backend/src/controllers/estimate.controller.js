@@ -1,11 +1,21 @@
-const { generateEstimatePdf } = require('../utils/pdf');
+const generateEstimatePdf = require('../utils/pdf').generateEstimatePdf;
 const service = require('../services/estimate.service');
+const logService = require('../services/log.service');
 const { ApiError } = require('../middleware/errorHandler');
 const asyncHandler = require('../utils/asyncHandler');
 
 const create = asyncHandler(async (req, res) => {
   const input = { ...req.body, userId: req.user?.id };
   const result = await service.createEstimation(input);
+
+  await logService.createLog({
+    action: 'CREATE',
+    entity: 'Estimation',
+    entityId: result.id.toString(),
+    details: { totalCost: result.totalCost },
+    userId: req.user?.id
+  });
+
   res.status(201).json(result);
 });
 
@@ -37,6 +47,14 @@ const remove = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'Anda tidak memiliki akses untuk menghapus estimasi ini');
   }
   await service.deleteEstimation(id);
+
+  await logService.createLog({
+    action: 'DELETE',
+    entity: 'Estimation',
+    entityId: id.toString(),
+    userId: req.user.id
+  });
+
   res.json({ message: 'Estimasi berhasil dihapus' });
 });
 

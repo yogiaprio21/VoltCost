@@ -203,12 +203,14 @@ export default function DashboardPage() {
               <h3 className="text-xl font-bold text-slate-700">Belum Ada Estimasi</h3>
               <p className="text-slate-500 text-sm max-w-xs mx-auto">Anda belum membuat simulasi apapun. Mulai hitung kebutuhan listrik Anda sekarang!</p>
             </div>
-            <Button
-              onClick={() => navigate('/')}
-              className="px-10 py-4"
-            >
-              Buat Estimasi Pertama
-            </Button>
+            <div className="flex justify-center pt-2">
+              <Button
+                onClick={() => navigate('/')}
+                className="px-10 py-4 shadow-xl shadow-blue-200"
+              >
+                Buat Estimasi Pertama
+              </Button>
+            </div>
           </div>
         )}
       </div>
