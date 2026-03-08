@@ -10,9 +10,7 @@ const app = express();
 
 const allowedOrigins = [
     process.env.FRONTEND_URL?.replace(/\/$/, ""), // Hapus trailing slash jika ada
-    'http://localhost:5173',
-    'https://volt-cost.vercel.app',
-    'https://voltcost.vercel.app'
+    'http://localhost:5173'
 ].filter(Boolean);
 
 app.use(cors({
