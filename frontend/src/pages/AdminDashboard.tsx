@@ -50,6 +50,43 @@ export default function AdminDashboardPage() {
         } finally { setALoading(false) }
     }
 
+    async function handleUpdate(id: number, payload: Omit<Material, 'id'>) {
+        try {
+            await updateMaterial(id, payload)
+            // Reload to get fresh data
+            await loadMaterials()
+        } catch (error) {
+            console.error('Update failed:', error)
+            alert('Gagal memperbarui material.')
+        }
+    }
+
+    async function handleDelete(id: number) {
+        if (!confirm('Hapus material ini?')) return
+        try {
+            await deleteMaterial(id)
+            await loadMaterials()
+        } catch (error) {
+            alert('Gagal menghapus material.')
+        }
+    }
+
+    async function handleAdd() {
+        const name = prompt('Nama Item:')
+        if (!name) return
+        try {
+            await createMaterial({
+                name,
+                type: 'cable',
+                unit: 'meter',
+                pricePerUnit: 0 as any
+            })
+            await loadMaterials()
+        } catch (error) {
+            alert('Gagal menambah material.')
+        }
+    }
+
     if (user?.role !== 'ADMIN') {
         return <Card className="p-8 text-center text-red-600 font-bold">Akses Ditolak. Khusus Admin.</Card>
     }
@@ -113,7 +150,7 @@ export default function AdminDashboardPage() {
                                 value={mFilter}
                                 onChange={e => setMFilter(e.target.value)}
                             />
-                            <Button className="px-8" onClick={() => {/* create implementation */ }}>Tambah</Button>
+                            <Button className="px-8" onClick={handleAdd}>Tambah</Button>
                         </div>
                     </div>
 
@@ -133,17 +170,49 @@ export default function AdminDashboardPage() {
                                     <tr><td colSpan={5} className="text-center py-10 text-gray-400">Memuat rincian material...</td></tr>
                                 ) : filteredMaterials.map(m => (
                                     <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-4 py-3"><Input value={m.name} className="bg-transparent border-0 font-medium" /></td>
                                         <td className="px-4 py-3">
-                                            <Select value={m.type} className="bg-transparent border-0">
+                                            <input
+                                                defaultValue={m.name}
+                                                className="bg-transparent border-b border-transparent focus:border-blue-500 outline-none w-full font-medium"
+                                                onBlur={async (e) => {
+                                                    if (e.target.value !== m.name) {
+                                                        await handleUpdate(m.id, { ...m, name: e.target.value });
+                                                    }
+                                                }}
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <select
+                                                defaultValue={m.type}
+                                                className="bg-transparent border-0 outline-none cursor-pointer"
+                                                onChange={async (e) => {
+                                                    await handleUpdate(m.id, { ...m, type: e.target.value as MaterialType });
+                                                }}
+                                            >
                                                 {materialTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                                            </Select>
+                                            </select>
                                         </td>
                                         <td className="px-4 py-3 text-gray-500">{m.unit}</td>
-                                        <td className="px-4 py-3 text-right font-bold text-gray-900">{formatCurrency(m.pricePerUnit)}</td>
                                         <td className="px-4 py-3 text-right">
-                                            <button className="text-blue-600 hover:text-blue-800 font-bold text-sm mr-4 transition-colors">Update</button>
-                                            <button className="text-red-600 hover:text-red-800 font-bold text-sm transition-colors">Hapus</button>
+                                            <input
+                                                type="number"
+                                                defaultValue={Number(m.pricePerUnit)}
+                                                className="bg-transparent border-b border-transparent focus:border-blue-500 outline-none w-24 text-right font-bold"
+                                                onBlur={async (e) => {
+                                                    const newPrice = Number(e.target.value);
+                                                    if (newPrice !== Number(m.pricePerUnit)) {
+                                                        await handleUpdate(m.id, { ...m, pricePerUnit: newPrice as any });
+                                                    }
+                                                }}
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button
+                                                onClick={() => handleDelete(m.id)}
+                                                className="text-red-600 hover:text-red-800 font-bold text-sm transition-colors"
+                                            >
+                                                Hapus
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
