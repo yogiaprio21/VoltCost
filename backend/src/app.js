@@ -10,8 +10,7 @@ const app = express();
 
 const allowedOrigins = [
     process.env.FRONTEND_URL,
-    'http://localhost:5173',
-    'https://voltcost.vercel.app' // Contoh placeholder
+    'http://localhost:5173'
 ];
 
 app.use(cors({
