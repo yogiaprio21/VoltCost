@@ -32,15 +32,15 @@ function computeCost(materials, metrics, installationType) {
   const conduit = materials.find((m) => m.type === 'conduit');
 
   const lines = [];
-  if (cable) lines.push({ name: 'Cable', unit: cable.unit, quantity: metrics.cableLength, unitPrice: Number(cable.pricePerUnit) });
-  if (conduit) lines.push({ name: 'Conduit', unit: conduit.unit, quantity: metrics.conduitLength, unitPrice: Number(conduit.pricePerUnit) });
-  if (switchM) lines.push({ name: 'Switch', unit: switchM.unit, quantity: metrics.lampPoints, unitPrice: Number(switchM.pricePerUnit) });
-  if (socketM) lines.push({ name: 'Socket', unit: socketM.unit, quantity: metrics.socketPoints, unitPrice: Number(socketM.pricePerUnit) });
+  if (cable) lines.push({ name: cable.name, unit: cable.unit, quantity: metrics.cableLength, unitPrice: Number(cable.pricePerUnit) });
+  if (conduit) lines.push({ name: conduit.name, unit: conduit.unit, quantity: metrics.conduitLength, unitPrice: Number(conduit.pricePerUnit) });
+  if (switchM) lines.push({ name: switchM.name, unit: switchM.unit, quantity: metrics.lampPoints, unitPrice: Number(switchM.pricePerUnit) });
+  if (socketM) lines.push({ name: socketM.name, unit: socketM.unit, quantity: metrics.socketPoints, unitPrice: Number(socketM.pricePerUnit) });
   if (mcb) {
-    lines.push({ name: `MCB ${metrics.mcb.main.rating}A`, unit: mcb.unit, quantity: metrics.mcb.main.count, unitPrice: Number(mcb.pricePerUnit) });
-    lines.push({ name: `MCB ${metrics.mcb.branch.rating}A`, unit: mcb.unit, quantity: metrics.mcb.branch.count, unitPrice: Number(mcb.pricePerUnit) });
+    lines.push({ name: `${mcb.name} ${metrics.mcb.main.rating}A`, unit: mcb.unit, quantity: metrics.mcb.main.count, unitPrice: Number(mcb.pricePerUnit) });
+    lines.push({ name: `${mcb.name} ${metrics.mcb.branch.rating}A`, unit: mcb.unit, quantity: metrics.mcb.branch.count, unitPrice: Number(mcb.pricePerUnit) });
   }
-  if (panel) lines.push({ name: 'Panel Board', unit: panel.unit, quantity: metrics.panelCount, unitPrice: Number(panel.pricePerUnit) });
+  if (panel) lines.push({ name: panel.name, unit: panel.unit, quantity: metrics.panelCount, unitPrice: Number(panel.pricePerUnit) });
 
   const subtotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
   const labor = Math.round(subtotal * 0.15);
