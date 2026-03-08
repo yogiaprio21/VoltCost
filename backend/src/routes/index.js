@@ -3,6 +3,7 @@ const authRoutes = require('./auth.routes');
 const materialsRoutes = require('./materials.routes');
 const estimateRoutes = require('./estimate.routes');
 const analyticsRoutes = require('./analytics.routes');
+const logRoutes = require('./log.routes');
 const swagger = require('../utils/swagger');
 const { authenticate, authorize } = require('../middleware/auth');
 
@@ -12,6 +13,7 @@ router.use('/auth', authRoutes);
 router.use('/materials', authenticate, authorize('ADMIN'), materialsRoutes);
 router.use('/estimate', estimateRoutes);
 router.use('/analytics', authenticate, authorize('ADMIN'), analyticsRoutes);
+router.use('/logs', authenticate, authorize('ADMIN'), logRoutes);
 router.use('/docs', swagger.ui, swagger.handler);
 
 router.get('/health', (req, res) => {

@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Card, Button, Input, Select } from '@components/UI'
+import { Card, Button, Input, Select, Modal, toast } from '@components/UI'
 import { useAuth } from '../hooks/useAuth'
 import { getMaterials, updateMaterial, createMaterial, deleteMaterial } from '@services/materials'
 import { getAnalytics } from '@services/analytics'
+import { getLogs, AuditLog as LogEntry } from '@services/log'
 import type { Material, MaterialType, AnalyticsResponse } from '@app-types/index'
 import TrendsLine from '@components/charts/TrendsLine'
-import { formatCurrency } from '@utils/format'
+import { formatCurrency, formatDate } from '@utils/format'
 
 type Tab = 'overview' | 'materials' | 'logs'
 
@@ -20,9 +21,22 @@ export default function AdminDashboardPage() {
     const [mLoading, setMLoading] = useState(false)
     const [mFilter, setMFilter] = useState('')
 
+    // Modal state
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+    const [newMaterial, setNewMaterial] = useState({
+        name: '',
+        type: 'cable' as MaterialType,
+        unit: 'meter',
+        pricePerUnit: 0
+    })
+
     // Analytics state
     const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null)
     const [aLoading, setALoading] = useState(false)
+
+    // Logs state
+    const [logs, setLogs] = useState<LogEntry[]>([])
+    const [lLoading, setLLoading] = useState(false)
 
     const filteredMaterials = useMemo(() =>
         materials.filter(m => m.name.toLowerCase().includes(mFilter.toLowerCase()) || m.type.includes(mFilter as any)),
@@ -32,6 +46,7 @@ export default function AdminDashboardPage() {
     useEffect(() => {
         if (activeTab === 'materials') loadMaterials()
         if (activeTab === 'overview') loadAnalytics()
+        if (activeTab === 'logs') loadLogs()
     }, [activeTab])
 
     async function loadMaterials() {
@@ -50,14 +65,21 @@ export default function AdminDashboardPage() {
         } finally { setALoading(false) }
     }
 
+    async function loadLogs() {
+        setLLoading(true)
+        try {
+            const data = await getLogs()
+            setLogs(data)
+        } finally { setLLoading(false) }
+    }
+
     async function handleUpdate(id: number, payload: Omit<Material, 'id'>) {
         try {
             await updateMaterial(id, payload)
-            // Reload to get fresh data
+            toast.success('Pembaruan berhasil')
             await loadMaterials()
         } catch (error) {
-            console.error('Update failed:', error)
-            alert('Gagal memperbarui material.')
+            toast.error('Gagal memperbarui material.')
         }
     }
 
@@ -65,25 +87,23 @@ export default function AdminDashboardPage() {
         if (!confirm('Hapus material ini?')) return
         try {
             await deleteMaterial(id)
+            toast.success('Material dihapus')
             await loadMaterials()
         } catch (error) {
-            alert('Gagal menghapus material.')
+            toast.error('Gagal menghapus material.')
         }
     }
 
-    async function handleAdd() {
-        const name = prompt('Nama Item:')
-        if (!name) return
+    async function handleConfirmAdd() {
+        if (!newMaterial.name) return toast.error('Nama wajib diisi')
         try {
-            await createMaterial({
-                name,
-                type: 'cable',
-                unit: 'meter',
-                pricePerUnit: 0 as any
-            })
+            await createMaterial(newMaterial as any)
+            toast.success('Material ditambahkan')
+            setIsAddModalOpen(false)
+            setNewMaterial({ name: '', type: 'cable', unit: 'meter', pricePerUnit: 0 })
             await loadMaterials()
         } catch (error) {
-            alert('Gagal menambah material.')
+            toast.error('Gagal menambah material.')
         }
     }
 
@@ -150,7 +170,7 @@ export default function AdminDashboardPage() {
                                 value={mFilter}
                                 onChange={e => setMFilter(e.target.value)}
                             />
-                            <Button className="px-8" onClick={handleAdd}>Tambah</Button>
+                            <Button className="px-8" onClick={() => setIsAddModalOpen(true)}>Tambah</Button>
                         </div>
                     </div>
 
@@ -223,10 +243,85 @@ export default function AdminDashboardPage() {
             )}
 
             {activeTab === 'logs' && (
-                <Card className="p-20 text-center text-gray-400 italic">
-                    Fitur Log Global segera hadir.
+                <Card>
+                    <h3 className="text-lg font-bold mb-6">Aktivitas Sistem</h3>
+                    <div className="space-y-4">
+                        {lLoading ? <div className="text-center py-10">Memuat log...</div> : logs.map(log => (
+                            <div key={log.id} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                <div className={`p-2 rounded-xl ${log.action === 'CREATE' ? 'bg-emerald-100 text-emerald-600' :
+                                    log.action === 'UPDATE' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'
+                                    }`}>
+                                    {log.action === 'CREATE' ? '+' : log.action === 'UPDATE' ? '✎' : '×'}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-start">
+                                        <span className="font-bold text-slate-800 uppercase tracking-tight text-sm">
+                                            {log.action} {log.entity}
+                                        </span>
+                                        <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-full border border-slate-50 shadow-sm">
+                                            {formatDate(log.createdAt)}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        ID: {log.entityId} • Oleh: {log.user?.name || log.userId}
+                                    </p>
+                                    {log.details && (
+                                        <div className="mt-2 p-2 bg-white rounded-lg border border-slate-100 text-[10px] text-slate-400 font-mono overflow-hidden truncate">
+                                            {JSON.stringify(log.details)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </Card>
             )}
+
+            <Modal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                title="Tambah Material Baru"
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Nama Item</label>
+                        <Input
+                            placeholder="Contoh: Kabel NYM 3x2.5"
+                            value={newMaterial.name}
+                            onChange={e => setNewMaterial({ ...newMaterial, name: e.target.value })}
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Kategori</label>
+                            <Select
+                                value={newMaterial.type}
+                                onChange={e => setNewMaterial({ ...newMaterial, type: e.target.value as MaterialType })}
+                            >
+                                {materialTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                            </Select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Satuan</label>
+                            <Input
+                                placeholder="meter/pcs"
+                                value={newMaterial.unit}
+                                onChange={e => setNewMaterial({ ...newMaterial, unit: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Harga per Satuan</label>
+                        <Input
+                            type="number"
+                            placeholder="0"
+                            value={newMaterial.pricePerUnit}
+                            onChange={e => setNewMaterial({ ...newMaterial, pricePerUnit: Number(e.target.value) })}
+                        />
+                    </div>
+                    <Button className="w-full mt-4 py-4" onClick={handleConfirmAdd}>Simpan Material</Button>
+                </div>
+            </Modal>
         </div>
     )
 }

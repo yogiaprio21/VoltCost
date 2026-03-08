@@ -49,6 +49,7 @@ model User {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   estimations      Estimation[]
+  auditLogs        AuditLog[]
 }
 
 model Estimation {
@@ -65,4 +66,15 @@ model Estimation {
   totalCost        Decimal           @db.Decimal(14,2)
   userId           String?
   user             User?             @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String   // e.g., 'CREATE', 'UPDATE', 'DELETE'
+  entity    String   // e.g., 'Material', 'Estimation'
+  entityId  String?  // ID of the affected entity
+  details   Json?    // Any additional data
+  userId    String?  // Who performed the action
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
