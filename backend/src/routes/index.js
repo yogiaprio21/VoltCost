@@ -15,10 +15,6 @@ router.use('/analytics', authenticate, authorize('ADMIN'), analyticsRoutes);
 router.use('/docs', swagger.ui, swagger.handler);
 
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-router.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
