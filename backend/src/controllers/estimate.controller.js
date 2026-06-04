@@ -30,12 +30,24 @@ const pdf = asyncHandler(async (req, res, next) => {
   const id = Number(req.params.id);
   const estimation = await service.getById(id);
   if (!estimation) throw new ApiError(404, 'Estimation not found');
+  if (!service.canAccessEstimation(estimation, req.user)) {
+    throw new ApiError(403, 'Anda tidak memiliki akses untuk mengunduh estimasi ini');
+  }
   generateEstimatePdf(res, estimation);
 });
 
 const update = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const result = await service.updateEstimation(id, req.body);
+  const result = await service.updateEstimation(id, req.body, req.user);
+
+  await logService.createLog({
+    action: 'UPDATE',
+    entity: 'Estimation',
+    entityId: id.toString(),
+    details: { totalCost: result.totalCost },
+    userId: req.user?.id
+  });
+
   res.json(result);
 });
 

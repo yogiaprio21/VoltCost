@@ -1,12 +1,20 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import type { EstimateResponse, CostLine } from '@app-types/index'
-import { Card, Button } from '@components/UI'
+import { useMemo, useState } from 'react'
+import type { EstimateResponse } from '@app-types/index'
+import { Button, Card, EmptyState, ErrorAlert, PageHeader, StatCard, toast } from '@components/UI'
 import BreakdownTable from '@components/BreakdownTable'
 import { formatCurrency } from '@utils/format'
 import CostPie from '@components/charts/CostPie'
 import { downloadPdf, updateEstimate } from '@services/estimate'
 import { useAuth } from '../hooks/useAuth'
+import Icon from '@components/Icon'
+
+function calculatePreview(lines: EstimateResponse['breakdown']['cost']['lines'], isPremium: boolean) {
+  const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0)
+  const labor = Math.round(subtotal * 0.15)
+  const premium = isPremium ? Math.round((subtotal + labor) * 0.2) : 0
+  return { subtotal, labor, premium, total: subtotal + labor + premium }
+}
 
 export default function ResultPage() {
   const location = useLocation()
@@ -15,155 +23,154 @@ export default function ResultPage() {
   const initialData = location.state as EstimateResponse | undefined
 
   const [data, setData] = useState<EstimateResponse | undefined>(initialData)
+  const [draftLines, setDraftLines] = useState(initialData?.breakdown.cost.lines || [])
   const [isEditing, setIsEditing] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  if (!data) {
+  const cost = data?.breakdown.cost
+  const isPremium = Boolean(cost && cost.premium > 0)
+  const preview = useMemo(() => calculatePreview(draftLines, isPremium), [draftLines, isPremium])
+
+  if (!data || !cost) {
     return (
-      <Card>
-        <div className="mb-4 text-gray-600">Belum ada hasil. Silakan buat estimasi terlebih dahulu.</div>
-        <Button onClick={() => navigate('/')}>Ke Form Estimasi</Button>
-      </Card>
+      <EmptyState
+        icon="clipboard"
+        title="Belum ada hasil estimasi"
+        description="Buat estimasi terlebih dahulu agar VoltCost dapat menampilkan rincian biaya dan PDF."
+        action={<Button icon="arrowLeft" onClick={() => navigate('/')}>Ke form estimasi</Button>}
+      />
     )
   }
 
+  const metrics = data.breakdown.metrics || {}
+
   const handleEditLine = (index: number, newQty: number) => {
-    if (!data) return
-    const newLines = [...data.breakdown.cost.lines]
-    newLines[index] = { ...newLines[index], quantity: newQty }
+    setDraftLines((prev) => prev.map((line, lineIndex) => lineIndex === index ? { ...line, quantity: newQty } : line))
+  }
 
-    // Recalculate locally
-    const subtotal = newLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
-    const labor = Math.round(subtotal * 0.15)
-    const premium = data.breakdown.cost.premium > 0 ? Math.round((subtotal + labor) * 0.2) : 0
-    const total = subtotal + labor + premium
-
-    setData({
-      ...data,
-      breakdown: {
-        ...data.breakdown,
-        cost: { ...data.breakdown.cost, lines: newLines, subtotal, labor, premium, total }
-      }
-    })
+  const handleStartEdit = () => {
+    setDraftLines(cost.lines)
+    setIsEditing(true)
+    setError(null)
   }
 
   const handleSave = async () => {
-    if (!data) return
-    setLoading(true)
+    setSaving(true)
+    setError(null)
     try {
       const updated = await updateEstimate(data.id, {
-        lines: data.breakdown.cost.lines,
-        installationType: data.breakdown.cost.premium > 0 ? 'premium' : 'standard'
+        lines: draftLines,
+        installationType: isPremium ? 'premium' : 'standard'
       })
       setData(updated)
+      setDraftLines(updated.breakdown.cost.lines)
       setIsEditing(false)
-    } catch (err) {
-      console.error('Failed to save override:', err)
-      alert('Gagal menyimpan perubahan.')
+      toast.success('Rincian estimasi tersimpan.')
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Gagal menyimpan perubahan.'
+      setError(message)
+      toast.error('Gagal menyimpan perubahan')
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
-  const cost = data.breakdown.cost
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      await downloadPdf(data.id)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Gagal mengunduh PDF')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const displayedCost = isEditing ? preview : cost
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <Card className="overflow-hidden border-0 shadow-xl shadow-blue-100/50">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex items-center justify-between">
+    <div className="space-y-6">
+      <PageHeader
+        title={`Hasil estimasi #${data.id}`}
+        description="Rincian biaya berikut disimpan dari calculation engine backend. Jika Anda mengubah kuantitas, simpan dulu agar PDF dan database ikut diperbarui."
+        action={
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button tone="ghost" icon="arrowLeft" onClick={() => navigate('/')}>Buat baru</Button>
+            <Button icon="download" loading={downloading} onClick={handleDownload}>Unduh PDF</Button>
+          </div>
+        }
+      />
+
+      {error && <ErrorAlert message={error} />}
+
+      <section className="grid gap-4 lg:grid-cols-4">
+        <StatCard label={isEditing ? 'Total pratinjau' : 'Total estimasi'} value={formatCurrency(displayedCost.total)} icon="zap" subtext={isEditing ? 'Belum tersimpan' : 'Tersimpan'} />
+        <StatCard label="Material" value={formatCurrency(displayedCost.subtotal)} icon="package" tone="neutral" />
+        <StatCard label="Jasa 15%" value={formatCurrency(displayedCost.labor)} icon="user" tone="success" />
+        <StatCard label="Premium" value={formatCurrency(displayedCost.premium)} icon="spark" tone={displayedCost.premium > 0 ? 'primary' : 'neutral'} />
+      </section>
+
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-sm font-medium text-blue-100 uppercase tracking-wider">Total Estimasi Biaya</h2>
-            <div className="text-4xl font-bold mt-1">{formatCurrency(cost.total)}</div>
+            <h2 className="text-lg font-semibold text-slate-950">Breakdown material dan jasa</h2>
+            <p className="mt-1 text-sm text-slate-600">Kuantitas dapat disesuaikan untuk akun yang sudah login.</p>
           </div>
           {user && (
-            <Button
-              className={isEditing ? "bg-green-500 hover:bg-green-600 shadow-lg shadow-green-200/50 text-white px-6 py-2" : "bg-white text-blue-700 hover:bg-blue-50 shadow-lg shadow-black/10 px-6 py-2 flex items-center gap-2 border-0"}
-              onClick={isEditing ? handleSave : () => setIsEditing(true)}
-              disabled={loading}
-            >
-              {loading ? (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-              )}
-              {isEditing ? 'Simpan Perubahan' : 'Sesuaikan Rincian'}
-            </Button>
+            <div className="flex gap-2">
+              {isEditing && <Button tone="ghost" onClick={() => { setDraftLines(cost.lines); setIsEditing(false) }}>Batal</Button>}
+              <Button tone={isEditing ? 'success' : 'primary'} icon={isEditing ? 'check' : 'edit'} loading={saving} onClick={isEditing ? handleSave : handleStartEdit}>
+                {isEditing ? 'Simpan rincian' : 'Sesuaikan'}
+              </Button>
+            </div>
           )}
         </div>
-
-        <div className="p-6">
-          <BreakdownTable
-            lines={cost.lines}
-            isEditable={isEditing}
-            onEdit={handleEditLine}
-          />
-
-          <div className="mt-8 flex flex-col md:flex-row justify-between gap-8 border-t pt-8">
-            <div className="space-y-4 flex-1">
-              <h3 className="text-lg font-bold text-gray-900 border-l-4 border-blue-600 pl-4">Metrik Kebutuhan</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-gray-50 p-3 rounded-xl"><span className="text-gray-500 block">Kabel (m)</span> <span className="font-bold text-gray-900 text-lg">{data.breakdown.metrics.cableLength}</span></div>
-                <div className="bg-gray-50 p-3 rounded-xl"><span className="text-gray-500 block">Titik Lampu</span> <span className="font-bold text-gray-900 text-lg">{data.breakdown.metrics.lampPoints}</span></div>
-                <div className="bg-gray-50 p-3 rounded-xl"><span className="text-gray-500 block">Sirkuit (Grup)</span> <span className="font-bold text-gray-900 text-lg">{data.breakdown.metrics.circuits}</span></div>
-                <div className="bg-gray-50 p-3 rounded-xl"><span className="text-gray-500 block">Conduit (m)</span> <span className="font-bold text-gray-900 text-lg">{data.breakdown.metrics.conduitLength}</span></div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-2xl min-w-[300px] border border-gray-100">
-              <div className="space-y-3">
-                <div className="flex justify-between text-gray-600"><span>Subtotal Material</span> <span>{formatCurrency(cost.subtotal)}</span></div>
-                <div className="flex justify-between text-gray-600"><span>Jasa Instalasi (15%)</span> <span>{formatCurrency(cost.labor)}</span></div>
-                {cost.premium > 0 && <div className="flex justify-between text-blue-600 font-medium"><span>Premium Surcharge (20%)</span> <span>{formatCurrency(cost.premium)}</span></div>}
-                <div className="pt-4 border-t border-gray-200 mt-2 flex justify-between items-end">
-                  <span className="text-gray-900 font-bold uppercase text-xs">Total Akhir</span>
-                  <span className="text-3xl font-black text-blue-700 leading-none">{formatCurrency(cost.total)}</span>
-                </div>
-              </div>
-              <div className="mt-6">
-                <Button className="w-full py-4 shadow-xl shadow-blue-200 flex items-center justify-center gap-3" onClick={() => downloadPdf(data.id)}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                  Cetak PDF Estimasi
-                </Button>
-              </div>
-            </div>
-          </div>
+        <div className="p-5">
+          <BreakdownTable lines={isEditing ? draftLines : cost.lines} isEditable={isEditing} onEdit={handleEditLine} />
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-            <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
-            Komposisi Biaya
-          </h3>
-          <div className="h-[250px] flex items-center justify-center">
-            <CostPie subtotal={cost.subtotal} labor={cost.labor} premium={cost.premium} />
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <Card className="p-5">
+          <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold text-slate-950">
+            <Icon name="barChart" className="h-5 w-5 text-sky-600" />
+            Komposisi biaya
+          </h2>
+          <div className="h-[280px]">
+            <CostPie subtotal={displayedCost.subtotal} labor={displayedCost.labor} premium={displayedCost.premium} />
           </div>
         </Card>
 
-        <Card className="flex flex-col justify-center items-center text-center space-y-4 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-          <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mb-2">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          </div>
-          <h3 className="text-xl font-bold">Butuh Bantuan Instalasi?</h3>
-          <p className="text-gray-400 text-sm max-w-[200px]">Konsultasikan hasil ini dengan teknisi bersertifikat kami untuk akurasi lokasi.</p>
-          <div className="mt-8 flex flex-col md:flex-row gap-4">
-            <Button
-              className="flex-1 bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-100 font-black px-8 py-5 flex items-center justify-center gap-3 transition-all transform hover:-translate-y-1"
-              onClick={() => downloadPdf(data.id)}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-              Cetak PDF Estimasi
-            </Button>
-            <Button
-              className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700 shadow-xl shadow-emerald-100 font-black px-8 py-5 flex items-center justify-center gap-3 transition-all transform hover:-translate-y-1"
-              onClick={() => window.open('https://wa.me/6282249238906', '_blank')}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-              Hubungi Kami
-            </Button>
-          </div>
-        </Card>
+        <div className="space-y-4">
+          <Card className="p-5">
+            <h2 className="text-lg font-semibold text-slate-950">Metrik teknis</h2>
+            <dl className="mt-4 grid gap-3 text-sm">
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Kabel</dt><dd className="font-semibold text-slate-950">{metrics.cableLength ?? '-'} m</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Conduit</dt><dd className="font-semibold text-slate-950">{metrics.conduitLength ?? '-'} m</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Sirkuit</dt><dd className="font-semibold text-slate-950">{metrics.circuits ?? '-'} grup</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Panel</dt><dd className="font-semibold text-slate-950">{metrics.panelCount ?? '-'} unit</dd></div>
+            </dl>
+          </Card>
+
+          <Card className="border-slate-800 bg-slate-950 p-5 text-white">
+            <h2 className="text-lg font-semibold">Butuh validasi lapangan?</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Bagikan PDF ke teknisi untuk survei, cek ukuran kabel, proteksi, dan kondisi bangunan.</p>
+            <div className="mt-5 grid gap-2">
+              <Button icon="download" loading={downloading} onClick={handleDownload}>Unduh PDF</Button>
+              <a
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                href="https://wa.me/6282249238906"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Icon name="phone" className="h-4 w-4" />
+                Hubungi via WhatsApp
+              </a>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   )

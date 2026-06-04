@@ -12,7 +12,7 @@ REST API produksi untuk penghitungan biaya instalasi listrik rumah, dibangun den
 - Docker & docker-compose
 
 ## Fitur
-- Material Management (Admin): CRUD material dengan proteksi kunci admin.
+- Material Management (Admin): CRUD material dengan proteksi JWT dan role `ADMIN`.
 - Estimation Engine: POST /estimate menyimpan histori lengkap dengan breakdown & total biaya.
 - PDF Export: GET /estimate/:id/pdf unduh PDF profesional.
 - Dashboard Analytics: total estimasi, biaya rata-rata, kapasitas daya terbanyak, tren bulanan.
@@ -41,11 +41,10 @@ prisma/
 ## Variabel Lingkungan
 Letakkan pada file `.env`:
 - `PORT` — port API (default 3000)
-- `ADMIN_API_KEY` — kunci admin untuk endpoint materials (header `X-Admin-Key`)
 - `DATABASE_URL` — URL koneksi Postgres, contoh:
   - `postgresql://postgres:postgres@localhost:5432/volt_cost?schema=public`
 
-> Jangan membagikan `ADMIN_API_KEY`. Untuk produksi gunakan secret manager/vars layanan.
+> Jangan membagikan secret database dan JWT. Untuk produksi gunakan secret manager/vars layanan.
 
 ## Setup (Lokal)
 1. Masuk direktori backend:
@@ -86,7 +85,7 @@ docker-compose up --build
 - Docs: `http://localhost:3000/api/docs`
 
 ## Endpoint Utama
-- Materials (Admin, header `X-Admin-Key`)
+- Materials (Admin, JWT role `ADMIN`)
   - GET `/api/materials`
   - POST `/api/materials`
   - PUT `/api/materials/:id`
@@ -105,7 +104,9 @@ docker-compose up --build
 5. Ekspor PDF berdasarkan data tersimpan (`GET /estimate/:id/pdf`).
 
 ## Keamanan
-- Endpoint material dilindungi oleh header `X-Admin-Key` yang harus cocok dengan `ADMIN_API_KEY`.
+- Endpoint material, analytics, dan logs dilindungi JWT serta role `ADMIN`.
+- Endpoint update estimasi mengecek owner/admin.
+- Endpoint PDF mengecek owner/admin untuk estimasi milik user; estimasi guest tetap dapat diunduh berdasarkan ID.
 - Jangan commit nilai rahasia ke repo publik.
 
 ## Troubleshooting
@@ -114,14 +115,14 @@ docker-compose up --build
   npx prisma generate
   ```
 - Migrasi gagal: cek `DATABASE_URL` dan hak akses database.
-- `Unauthorized` pada materials: pastikan header `X-Admin-Key` sama dengan `ADMIN_API_KEY`.
+- `Unauthorized` pada materials: pastikan token login valid dan user memiliki role `ADMIN`.
 - PDF kosong/unduhan gagal: pastikan `id` estimasi valid dan data tersedia.
 
 ## Script NPM
 - `npm start` — jalankan API
 - `npm run dev` — hot reload dengan nodemon
+- `npm run test:estimation` — test calculation engine tanpa framework tambahan
 - `npm run prisma:generate` — generate Prisma client
 - `npm run prisma:migrate` — migrasi dev
 - `npm run prisma:deploy` — migrasi deploy (CI/CD)
 - `npm run prisma:seed` — seed material default
-

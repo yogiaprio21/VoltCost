@@ -9,7 +9,7 @@ const openapi = {
   servers: [{ url: '/api' }],
   components: {
     securitySchemes: {
-      AdminApiKey: { type: 'apiKey', in: 'header', name: 'X-Admin-Key' }
+      BearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
     },
     schemas: {
       Material: {
@@ -73,12 +73,12 @@ const openapi = {
   paths: {
     '/materials': {
       get: {
-        security: [{ AdminApiKey: [] }],
+        security: [{ BearerAuth: [] }],
         summary: 'Get all materials',
         responses: { '200': { description: 'OK', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Material' } } } } } }
       },
       post: {
-        security: [{ AdminApiKey: [] }],
+        security: [{ BearerAuth: [] }],
         summary: 'Create material',
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateMaterialInput' } } } },
         responses: { '201': { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/Material' } } } } }
@@ -86,14 +86,14 @@ const openapi = {
     },
     '/materials/{id}': {
       put: {
-        security: [{ AdminApiKey: [] }],
+        security: [{ BearerAuth: [] }],
         summary: 'Update material',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateMaterialInput' } } } },
         responses: { '200': { description: 'OK' } }
       },
       delete: {
-        security: [{ AdminApiKey: [] }],
+        security: [{ BearerAuth: [] }],
         summary: 'Delete material',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
         responses: { '204': { description: 'No Content' } }
@@ -115,6 +115,7 @@ const openapi = {
     },
     '/analytics': {
       get: {
+        security: [{ BearerAuth: [] }],
         summary: 'Dashboard analytics',
         responses: { '200': { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/AnalyticsResponse' } } } } }
       }

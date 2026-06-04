@@ -1,5 +1,6 @@
 const prisma = require('../prisma/client');
-const { buildBreakdown } = require('../utils/estimation');
+const { buildBreakdown, computeCostFromLines } = require('../utils/estimation');
+const { ApiError } = require('../middleware/errorHandler');
 
 async function createEstimation(input) {
   const materials = await prisma.material.findMany();
@@ -39,20 +40,37 @@ async function getById(id) {
   return prisma.estimation.findUnique({ where: { id: Number(id) } });
 }
 
-async function updateEstimation(id, { lines, installationType }) {
-  const subtotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
-  const labor = Math.round(subtotal * 0.15);
-  const premium = installationType === 'premium' ? Math.round((subtotal + labor) * 0.2) : 0;
-  const total = subtotal + labor + premium;
+function canAccessEstimation(estimation, user) {
+  if (!estimation) return false;
+  if (!estimation.userId) return true;
+  return user?.role === 'ADMIN' || estimation.userId === user?.id;
+}
+
+async function updateEstimation(id, { lines, installationType }, user) {
+  const existing = await getById(id);
+  if (!canAccessEstimation(existing, user)) {
+    throw new ApiError(403, 'Anda tidak memiliki akses untuk mengubah estimasi ini');
+  }
+
+  const cost = computeCostFromLines(lines, installationType);
+  const breakdown = {
+    ...(existing.breakdown || {}),
+    metrics: existing.breakdown?.metrics || {},
+    cost,
+    meta: {
+      ...(existing.breakdown?.meta || {}),
+      formulaVersion: '2026.06',
+      adjustedAt: new Date().toISOString(),
+      adjustedBy: user?.id || null
+    }
+  };
 
   const updated = await prisma.estimation.update({
     where: { id: Number(id) },
     data: {
-      breakdown: {
-        metrics: {}, // Keeping metrics for now, or we could update them if needed
-        cost: { lines, subtotal, labor, premium, total }
-      },
-      totalCost: total
+      installationType,
+      breakdown,
+      totalCost: cost.total
     }
   });
 
@@ -63,4 +81,4 @@ async function deleteEstimation(id) {
   return prisma.estimation.delete({ where: { id: Number(id) } });
 }
 
-module.exports = { createEstimation, updateEstimation, getById, getByUserId, deleteEstimation }
+module.exports = { createEstimation, updateEstimation, getById, getByUserId, deleteEstimation, canAccessEstimation }

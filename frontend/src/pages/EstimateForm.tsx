@@ -1,209 +1,225 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Input, Select } from '@components/UI'
+import { Button, Card, ErrorAlert, Field, Input, PageHeader, Select, StatCard, toast } from '@components/UI'
+import Icon from '@components/Icon'
 import type { EstimateInput, EstimateResponse } from '@app-types/index'
 import { createEstimate } from '@services/estimate'
 
 const capacities: Array<EstimateInput['powerCapacity']> = [900, 1300, 2200, 3500]
+const steps = ['Bangunan', 'Titik', 'Beban', 'Kualitas']
+
+const defaultForm: EstimateInput = {
+  houseArea: 100,
+  lampPoints: 10,
+  socketPoints: 10,
+  acCount: 1,
+  pumpCount: 0,
+  powerCapacity: 2200,
+  installationType: 'standard'
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  if (Number.isNaN(value)) return min
+  return Math.max(min, Math.min(max, Math.round(value)))
+}
 
 export default function EstimateFormPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState<EstimateInput>({
-    houseArea: 100,
-    lampPoints: 10,
-    socketPoints: 10,
-    acCount: 1,
-    pumpCount: 0,
-    powerCapacity: 2200,
-    installationType: 'standard'
-  })
+  const [activeStep, setActiveStep] = useState(0)
+  const [form, setForm] = useState<EstimateInput>(defaultForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function onChange<K extends keyof EstimateInput>(key: K, val: EstimateInput[K]) {
-    setForm(prev => ({ ...prev, [key]: val }))
+  const estimatedPoints = form.lampPoints + form.socketPoints + form.acCount + form.pumpCount
+  const suggestedCircuits = Math.max(1, Math.ceil(estimatedPoints / 6))
+  const qualityLabel = form.installationType === 'premium' ? 'Premium' : 'Standar'
+
+  const errors = useMemo(() => ({
+    houseArea: form.houseArea < 1 || form.houseArea > 1000 ? 'Luas rumah harus 1 sampai 1000 m2.' : null,
+    lampPoints: form.lampPoints > 300 ? 'Titik lampu terlalu besar untuk estimasi cepat.' : null,
+    socketPoints: form.socketPoints > 300 ? 'Jumlah stopkontak terlalu besar untuk estimasi cepat.' : null,
+    acCount: form.acCount > 50 ? 'Jumlah AC terlalu besar untuk estimasi rumah tinggal.' : null,
+    pumpCount: form.pumpCount > 20 ? 'Jumlah pompa terlalu besar untuk estimasi rumah tinggal.' : null
+  }), [form])
+
+  const isValid = Object.values(errors).every((item) => !item)
+
+  function update<K extends keyof EstimateInput>(key: K, value: EstimateInput[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const numberField = (key: keyof EstimateInput, min: number, max: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    update(key, clampNumber(Number(e.target.value), min, max) as any)
   }
 
   async function onSubmit() {
+    if (!isValid) return
     setLoading(true)
     setError(null)
     try {
       const res: EstimateResponse = await createEstimate(form)
+      toast.success('Estimasi berhasil dihitung.')
       navigate('/result', { state: res })
     } catch (e: any) {
-      setError(e?.response?.data?.error || 'Gagal menghitung estimasi.')
+      const message = e?.response?.data?.error || e?.response?.data?.message || 'Gagal menghitung estimasi.'
+      setError(message)
+      toast.error('Gagal menghitung estimasi')
     } finally {
       setLoading(false)
     }
   }
 
-  const numField = (k: keyof EstimateInput) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value)
-    onChange(k, (isNaN(val) ? 0 : val) as any)
-  }
-
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">Mulai <span className="text-blue-600">Estimasi</span> Anda</h1>
-        <p className="text-slate-500 max-w-lg mx-auto">Lengkapi detail di bawah ini untuk mendapatkan rincian biaya instalasi listrik yang akurat dan transparan.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Estimator instalasi listrik"
+        description="Masukkan data bangunan secara bertahap. VoltCost akan menghitung rincian material, jasa, dan biaya premium dari backend agar angka UI, database, dan PDF tetap sama."
+      />
 
-      <Card className="overflow-hidden border-0 shadow-2xl shadow-blue-100/50 p-0">
-        <div className="grid md:grid-cols-12">
-          {/* Section Information */}
-          <div className="md:col-span-4 bg-slate-900 p-8 text-white space-y-8">
-            <div className="space-y-4">
-              <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <Card className="overflow-hidden">
+          <div className="border-b border-slate-200 bg-white p-4">
+            <div className="grid gap-2 sm:grid-cols-4" role="tablist" aria-label="Tahap form estimasi">
+              {steps.map((step, index) => (
+                <button
+                  key={step}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeStep === index}
+                  onClick={() => setActiveStep(index)}
+                  className={`rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${activeStep === index ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  <span className="mr-2 inline-grid h-6 w-6 place-items-center rounded-md bg-white text-xs shadow-sm">{index + 1}</span>
+                  {step}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-8 p-5 sm:p-6">
+            {activeStep === 0 && (
+              <section className="space-y-5" role="tabpanel">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-950">Data bangunan dan daya</h2>
+                  <p className="mt-1 text-sm text-slate-600">Gunakan luas bangunan aktual dan daya terpasang yang akan digunakan.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Luas rumah" hint="m2" error={errors.houseArea}>
+                    <Input type="number" min={1} max={1000} value={form.houseArea} onChange={numberField('houseArea', 1, 1000)} />
+                  </Field>
+                  <Field label="Daya listrik">
+                    <Select value={form.powerCapacity} onChange={(e) => update('powerCapacity', Number(e.target.value) as EstimateInput['powerCapacity'])}>
+                      {capacities.map((capacity) => <option key={capacity} value={capacity}>{capacity} VA</option>)}
+                    </Select>
+                  </Field>
+                </div>
+              </section>
+            )}
+
+            {activeStep === 1 && (
+              <section className="space-y-5" role="tabpanel">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-950">Titik instalasi standar</h2>
+                  <p className="mt-1 text-sm text-slate-600">Titik lampu dan stopkontak memengaruhi kebutuhan saklar, outlet, panjang kabel, dan conduit.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Titik lampu" error={errors.lampPoints}>
+                    <Input type="number" min={0} max={300} value={form.lampPoints} onChange={numberField('lampPoints', 0, 300)} />
+                  </Field>
+                  <Field label="Stopkontak" error={errors.socketPoints}>
+                    <Input type="number" min={0} max={300} value={form.socketPoints} onChange={numberField('socketPoints', 0, 300)} />
+                  </Field>
+                </div>
+              </section>
+            )}
+
+            {activeStep === 2 && (
+              <section className="space-y-5" role="tabpanel">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-950">Beban khusus</h2>
+                  <p className="mt-1 text-sm text-slate-600">AC dan pompa biasanya memerlukan perhatian jalur/sirkuit agar beban tidak menumpuk.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Jumlah AC" error={errors.acCount}>
+                    <Input type="number" min={0} max={50} value={form.acCount} onChange={numberField('acCount', 0, 50)} />
+                  </Field>
+                  <Field label="Pompa air" error={errors.pumpCount}>
+                    <Input type="number" min={0} max={20} value={form.pumpCount} onChange={numberField('pumpCount', 0, 20)} />
+                  </Field>
+                </div>
+              </section>
+            )}
+
+            {activeStep === 3 && (
+              <section className="space-y-5" role="tabpanel">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-950">Kualitas instalasi</h2>
+                  <p className="mt-1 text-sm text-slate-600">Pilih standar untuk estimasi ekonomis atau premium untuk tambahan kualitas material dan pengerjaan.</p>
+                </div>
+                <fieldset className="grid gap-3 sm:grid-cols-2">
+                  <legend className="sr-only">Pilih kualitas instalasi</legend>
+                  {(['standard', 'premium'] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => update('installationType', type)}
+                      className={`rounded-lg border p-4 text-left transition ${form.installationType === type ? 'border-sky-300 bg-sky-50 ring-4 ring-sky-100' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="font-semibold capitalize text-slate-950">{type === 'standard' ? 'Standar' : 'Premium'}</div>
+                        {form.installationType === type && <Icon name="check" className="h-5 w-5 text-sky-700" />}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{type === 'standard' ? 'Material inti dan jasa dasar.' : 'Tambahan 20% setelah material dan jasa.'}</p>
+                    </button>
+                  ))}
+                </fieldset>
+              </section>
+            )}
+
+            {error && <ErrorAlert message={error} />}
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <Button tone="ghost" icon="arrowLeft" disabled={activeStep === 0} onClick={() => setActiveStep((step) => Math.max(0, step - 1))}>
+                Sebelumnya
+              </Button>
+              <div className="flex gap-3">
+                {activeStep < steps.length - 1 ? (
+                  <Button icon="arrowRight" onClick={() => setActiveStep((step) => Math.min(steps.length - 1, step + 1))}>
+                    Lanjut
+                  </Button>
+                ) : (
+                  <Button icon="zap" loading={loading} disabled={!isValid} onClick={onSubmit}>
+                    Hitung estimasi
+                  </Button>
+                )}
               </div>
-              <h3 className="text-xl font-bold italic underline decoration-blue-500 underline-offset-8">Panduan Cepat</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Gunakan angka meteran rill untuk luas rumah. Jumlah titik lampu dan stopkontak akan sangat mempengaruhi panjang kabel yang dibutuhkan.
+            </div>
+          </div>
+        </Card>
+
+        <aside className="space-y-4">
+          <StatCard label="Titik instalasi" value={estimatedPoints} icon="clipboard" subtext="Lampu, stopkontak, AC, dan pompa" />
+          <StatCard label="Saran grup MCB" value={suggestedCircuits} icon="shield" subtext="Estimasi awal, dihitung final di backend" tone="neutral" />
+          <Card className="p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+              <Icon name="info" className="h-4 w-4 text-sky-600" />
+              Ringkasan input
+            </h2>
+            <dl className="mt-4 grid gap-3 text-sm">
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Luas</dt><dd className="font-semibold text-slate-950">{form.houseArea} m2</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Daya</dt><dd className="font-semibold text-slate-950">{form.powerCapacity} VA</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Kualitas</dt><dd className="font-semibold text-slate-950">{qualityLabel}</dd></div>
+            </dl>
+          </Card>
+          <Card className="border-amber-200 bg-amber-50 p-5">
+            <div className="flex gap-3">
+              <Icon name="alert" className="mt-0.5 h-5 w-5 flex-none text-amber-700" />
+              <p className="text-sm leading-6 text-amber-900">
+                Hasil VoltCost adalah estimasi awal. Pekerjaan final tetap perlu survei teknisi dan mengikuti ketentuan keselamatan instalasi.
               </p>
             </div>
-
-            <div className="pt-8 border-t border-slate-800">
-              <div className="flex items-center gap-4 group cursor-help">
-                <div className="w-10 h-10 rounded-full border border-slate-700 flex items-center justify-center text-xs font-black group-hover:border-blue-500 group-hover:text-blue-500 transition-all">01</div>
-                <div className="text-xs font-bold text-slate-500 group-hover:text-slate-300">ISI DATA BANGUNAN</div>
-              </div>
-              <div className="w-px h-8 bg-slate-800 ml-5" />
-              <div className="flex items-center gap-4 group cursor-help">
-                <div className="w-10 h-10 rounded-full border border-slate-700 flex items-center justify-center text-xs font-black">02</div>
-                <div className="text-xs font-bold text-slate-500">HITUNG OTOMATIS</div>
-              </div>
-              <div className="w-px h-8 bg-slate-800 ml-5" />
-              <div className="flex items-center gap-4 group cursor-help">
-                <div className="w-10 h-10 rounded-full border border-slate-700 flex items-center justify-center text-xs font-black">03</div>
-                <div className="text-xs font-bold text-slate-500">SESUAIKAN RINCIAN</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Form Content */}
-          <div className="md:col-span-8 p-8 bg-white">
-            <div className="grid gap-8">
-              {/* Group 1: Area & Main Settings */}
-              <div className="space-y-4">
-                <h4 className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest">
-                  <span className="w-6 h-px bg-blue-200"></span>
-                  Dimensi & Kapasitas
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-sm font-bold text-slate-700 block">Luas Rumah (m²)</label>
-                    <Input type="number" min={1} value={form.houseArea} onChange={numField('houseArea')} className="py-3 px-4 bg-slate-50 border-0 focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div className="space-y-1.5 text-left">
-                    <label className="text-sm font-bold text-slate-700 block text-left">Daya Listrik (VA)</label>
-                    <Select value={form.powerCapacity} onChange={e => onChange('powerCapacity', Number(e.target.value) as any)} className="py-3 px-4 bg-slate-50 border-0 focus:ring-2 focus:ring-blue-500">
-                      {capacities.map(c => <option key={c} value={c}>{c} VA</option>)}
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Group 2: Installation Points */}
-              <div className="space-y-4">
-                <h4 className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest">
-                  <span className="w-6 h-px bg-blue-200"></span>
-                  Titik Instalasi Standar
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-slate-700 block text-left">Titik Lampu</label>
-                    <Input type="number" min={0} value={form.lampPoints} onChange={numField('lampPoints')} className="py-3 px-4 bg-slate-50 border-0" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-slate-700 block text-left">Stopkontak</label>
-                    <Input type="number" min={0} value={form.socketPoints} onChange={numField('socketPoints')} className="py-3 px-4 bg-slate-50 border-0" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Group 3: Heavy Appliances */}
-              <div className="space-y-4">
-                <h4 className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest">
-                  <span className="w-6 h-px bg-blue-200"></span>
-                  Peralatan Daya Besar
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-slate-700 block text-left">Jumlah AC</label>
-                    <Input type="number" min={0} value={form.acCount} onChange={numField('acCount')} className="py-3 px-4 bg-slate-50 border-0" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-slate-700 block text-left">Pompa Air</label>
-                    <Input type="number" min={0} value={form.pumpCount} onChange={numField('pumpCount')} className="py-3 px-4 bg-slate-50 border-0" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Group 4: Quality */}
-              <div className="pt-4 mt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div className="flex-1 w-full text-left">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5 text-left">Quality Level</label>
-                  <div className="flex bg-slate-100 p-1 rounded-xl w-full">
-                    {['standard', 'premium'].map(type => (
-                      <button
-                        key={type}
-                        onClick={() => onChange('installationType', type as any)}
-                        className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${form.installationType === type ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                          }`}
-                      >
-                        {type.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="w-full sm:w-auto mt-auto">
-                  <Button
-                    onClick={onSubmit}
-                    disabled={loading}
-                    className="w-full sm:w-48 py-4 shadow-xl shadow-blue-200"
-                  >
-                    {loading ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Menghitung...
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        Lihat Hasilnya
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                      </span>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-3 border border-red-100">
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                  {error}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Trust Badges */}
-      <div className="flex flex-wrap justify-center gap-8 pt-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-700">
-        <div className="flex items-center gap-2 font-black text-slate-400 text-xs">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.9L10 1.55l7.834 3.35a1 1 0 01.616.92v5.352c0 3.37-1.932 6.36-4.992 7.713L10 20l-3.458-1.115C3.482 17.532 1.55 14.54 1.55 11.17V5.82a1 1 0 01.616-.92zM10 3.193L3.55 5.954V11.17a6.666 6.666 0 003.88 6.095L10 18.286l2.57-1.021A6.666 6.666 0 0016.45 11.17V5.954L10 3.193z" clipRule="evenodd"></path></svg>
-          STANDAR PLN
-        </div>
-        <div className="flex items-center gap-2 font-black text-slate-400 text-xs">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-          AKURASI 98%
-        </div>
-        <div className="flex items-center gap-2 font-black text-slate-400 text-xs">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd"></path></svg>
-          CEPAT & RILL
-        </div>
+          </Card>
+        </aside>
       </div>
     </div>
   )

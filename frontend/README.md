@@ -38,7 +38,6 @@ src/
 ## Variabel Lingkungan
 Salin `.env.example` menjadi `.env` dan sesuaikan:
 - `VITE_API_URL` — URL backend, contoh `http://localhost:3000`
-- `VITE_ADMIN_KEY` — (opsional) jika ingin akses Admin Materials, harus sama dengan `ADMIN_API_KEY` backend
 
 ## Menjalankan (Dev)
 ```
@@ -56,17 +55,17 @@ npm run preview
 
 ## Integrasi Dengan Backend
 - Secara default, dev server mem-proxy `/api` ke `VITE_API_URL` (atau `http://localhost:3000` jika tidak diset).
-- Untuk Admin Panel, isi `VITE_ADMIN_KEY` agar permintaan ke endpoint materials menyertakan header `X-Admin-Key`.
+- Untuk Admin Panel, login dengan akun role `ADMIN`. Endpoint admin memakai token auth, bukan variabel kunci admin di frontend.
 
 ## Halaman
 - `/` — Estimation Form
 - `/result` — Result (navigasi dari Form)
-- `/admin` — Admin Materials (butuh `VITE_ADMIN_KEY`)
-- `/dashboard` — Dashboard analytics
+- `/admin` — Admin Control Center (butuh role `ADMIN`)
+- `/dashboard` — Riwayat estimasi user
 
 ## Troubleshooting
 - CORS/Network error: pastikan `VITE_API_URL` mengarah ke backend yang aktif, dan dev proxy sudah sesuai.
-- Admin 401: pastikan `VITE_ADMIN_KEY` sama dengan `ADMIN_API_KEY` backend.
+- Admin 401/403: pastikan user sudah login dan memiliki role `ADMIN`.
 - PDF tidak terunduh: pastikan ID estimasi valid dan backend dapat diakses langsung dari browser.
 
 ## Script NPM
@@ -74,4 +73,3 @@ npm run preview
 - `npm run build` — produksi
 - `npm run preview` — pratinjau build
 - `npm run typecheck` — cek TypeScript
-

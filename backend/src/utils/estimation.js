@@ -8,7 +8,9 @@ function computeCableLength({ houseArea, lampPoints, socketPoints, acCount, pump
 }
 
 function computeMcbRequirement({ powerCapacity, circuits }) {
-  const mainMap = { 900: 6, 1300: 10, 2200: 16, 3500: 20 };
+  // Common single-phase residential PLN limiter mapping at ~220V.
+  // Keep this configurable in code until a tariff/service catalog table exists.
+  const mainMap = { 900: 4, 1300: 6, 2200: 10, 3500: 16 };
   const mainRating = mainMap[powerCapacity] || 16;
   const branchRating = 6;
   const branchCount = Math.max(1, circuits);
@@ -42,11 +44,21 @@ function computeCost(materials, metrics, installationType) {
   }
   if (panel) lines.push({ name: panel.name, unit: panel.unit, quantity: metrics.panelCount, unitPrice: Number(panel.pricePerUnit) });
 
-  const subtotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+  return computeCostFromLines(lines, installationType);
+}
+
+function computeCostFromLines(lines, installationType) {
+  const normalizedLines = lines.map((line) => ({
+    name: String(line.name || '').trim(),
+    unit: String(line.unit || '').trim(),
+    quantity: Math.max(0, Number(line.quantity) || 0),
+    unitPrice: Math.max(0, Number(line.unitPrice) || 0)
+  }));
+  const subtotal = normalizedLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
   const labor = Math.round(subtotal * 0.15);
   const premium = installationType === 'premium' ? Math.round((subtotal + labor) * 0.2) : 0;
   const total = subtotal + labor + premium;
-  return { lines, subtotal, labor, premium, total };
+  return { lines: normalizedLines, subtotal, labor, premium, total };
 }
 
 function buildBreakdown({ input, materials }) {
@@ -60,4 +72,4 @@ function buildBreakdown({ input, materials }) {
   return { metrics, cost };
 }
 
-module.exports = { buildBreakdown };
+module.exports = { buildBreakdown, computeCostFromLines };

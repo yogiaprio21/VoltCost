@@ -17,6 +17,18 @@ const estimateInputSchema = z.object({
   installationType: z.enum(['standard', 'premium'])
 });
 
+const costLineSchema = z.object({
+  name: z.string().min(1),
+  unit: z.string().min(1),
+  quantity: z.number().nonnegative(),
+  unitPrice: z.number().nonnegative()
+});
+
+const updateEstimateSchema = z.object({
+  lines: z.array(costLineSchema).min(1),
+  installationType: z.enum(['standard', 'premium'])
+});
+
 const idParamSchema = z.object({ id: z.string().regex(/^\d+$/).transform((v) => Number(v)) });
 
 const registerSchema = z.object({
@@ -30,4 +42,4 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password harus diisi')
 });
 
-module.exports = { materialSchema, estimateInputSchema, idParamSchema, registerSchema, loginSchema };
+module.exports = { materialSchema, estimateInputSchema, updateEstimateSchema, idParamSchema, registerSchema, loginSchema };

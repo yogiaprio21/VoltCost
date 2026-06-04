@@ -1,5 +1,5 @@
 const express = require('express');
-const { estimateInputSchema, idParamSchema } = require('../utils/schemas');
+const { estimateInputSchema, updateEstimateSchema, idParamSchema } = require('../utils/schemas');
 const validate = require('../middleware/validate');
 const ctrl = require('../controllers/estimate.controller');
 const asyncHandler = require('../utils/asyncHandler');
@@ -22,8 +22,8 @@ const tryAuthenticate = (req, res, next) => {
 
 router.post('/', tryAuthenticate, validate(estimateInputSchema), asyncHandler(ctrl.create));
 router.get('/my', authenticate, asyncHandler(ctrl.listMyEstimations));
-router.put('/:id', authenticate, asyncHandler(ctrl.update));
+router.put('/:id', authenticate, validate(idParamSchema, 'params'), validate(updateEstimateSchema), asyncHandler(ctrl.update));
 router.delete('/:id', authenticate, asyncHandler(ctrl.remove));
-router.get('/:id/pdf', validate(idParamSchema, 'params'), asyncHandler(ctrl.pdf));
+router.get('/:id/pdf', tryAuthenticate, validate(idParamSchema, 'params'), asyncHandler(ctrl.pdf));
 
 module.exports = router;

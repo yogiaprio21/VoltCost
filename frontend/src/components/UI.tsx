@@ -1,57 +1,190 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useId, useState } from 'react'
+import Icon, { IconName } from './Icon'
 
-export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`border rounded-xl px-4 py-2 w-full focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none border-slate-200 ${props.className || ''}`} />
+type Tone = 'primary' | 'neutral' | 'danger' | 'success' | 'ghost'
+
+const toneClasses: Record<Tone, string> = {
+  primary: 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-200 shadow-sm shadow-sky-100',
+  neutral: 'bg-slate-900 text-white hover:bg-slate-800 focus-visible:ring-slate-200 shadow-sm',
+  danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-200 shadow-sm shadow-red-100',
+  success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-200 shadow-sm shadow-emerald-100',
+  ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-200 shadow-none'
+}
+
+export function Field({
+  label,
+  hint,
+  error,
+  children
+}: {
+  label: string
+  hint?: string
+  error?: string | null
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-end justify-between gap-3">
+        <label className="block text-sm font-semibold text-slate-800">{label}</label>
+        {hint && <span className="text-xs text-slate-500">{hint}</span>}
+      </div>
+      {children}
+      {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+    </div>
+  )
+}
+
+export function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={`h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${className}`}
+    />
+  )
 }
 
 export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const [show, setShow] = useState(false)
   return (
-    <div className="relative w-full">
-      <input
-        {...props}
-        type={show ? 'text' : 'password'}
-        className={`border rounded-xl px-4 py-2 w-full pr-12 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none border-slate-200 ${props.className || ''}`}
-      />
+    <div className="relative">
+      <Input {...props} type={show ? 'text' : 'password'} className={`pr-11 ${props.className || ''}`} />
       <button
         type="button"
+        aria-label={show ? 'Sembunyikan password' : 'Tampilkan password'}
         onClick={() => setShow(!show)}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+        className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
       >
-        {show ? (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-        ) : (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
-        )}
+        <Icon name={show ? 'eyeOff' : 'eye'} className="h-4 w-4" />
       </button>
     </div>
   )
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`border border-slate-200 rounded-xl px-4 py-2 w-full focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none bg-white ${props.className || ''}`} />
-}
-
-export function Button({ className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const hasBg = className.includes('bg-')
+export function Select({ className = '', ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <button
+    <select
       {...props}
-      className={`
-        ${!hasBg ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-100' : ''}
-        rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-        flex items-center justify-center gap-2
-        ${className}
-      `.replace(/\s+/g, ' ').trim()}
+      className={`h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 ${className}`}
     />
   )
 }
 
-export function Card({ children, className = '' }: { children: any, className?: string }) {
-  return <div className={`bg-white border border-slate-100 rounded-3xl p-4 shadow-xl shadow-slate-200/50 ${className}`}>{children}</div>
+export function Button({
+  className = '',
+  tone = 'primary',
+  icon,
+  loading,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone; icon?: IconName; loading?: boolean }) {
+  return (
+    <button
+      {...props}
+      disabled={props.disabled || loading}
+      className={`${toneClasses[tone]} inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-55 ${className}`}
+    >
+      {loading ? <Icon name="loader" className="h-4 w-4 animate-spin" /> : icon ? <Icon name={icon} className="h-4 w-4" /> : null}
+      {children}
+    </button>
+  )
 }
 
-// Custom Toast System
+export function IconButton({
+  label,
+  icon,
+  className = '',
+  tone = 'ghost',
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string; icon: IconName; tone?: Tone }) {
+  return (
+    <button
+      {...props}
+      aria-label={label}
+      title={label}
+      className={`${toneClasses[tone]} inline-grid h-10 w-10 place-items-center rounded-lg transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-55 ${className}`}
+    >
+      <Icon name={icon} className="h-5 w-5" />
+    </button>
+  )
+}
+
+export function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <section className={`rounded-lg border border-slate-200 bg-white shadow-sm ${className}`}>{children}</section>
+}
+
+export function PageHeader({
+  title,
+  description,
+  action
+}: {
+  title: string
+  description?: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
+        {description && <p className="max-w-2xl text-sm leading-6 text-slate-600">{description}</p>}
+      </div>
+      {action}
+    </div>
+  )
+}
+
+export function StatCard({
+  label,
+  value,
+  icon,
+  tone = 'primary',
+  subtext
+}: {
+  label: string
+  value: React.ReactNode
+  icon: IconName
+  tone?: Tone
+  subtext?: string
+}) {
+  const accent = tone === 'danger' ? 'text-red-600 bg-red-50' : tone === 'success' ? 'text-emerald-600 bg-emerald-50' : tone === 'neutral' ? 'text-slate-700 bg-slate-100' : 'text-sky-600 bg-sky-50'
+  return (
+    <Card className="p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{label}</p>
+          <div className="mt-2 text-2xl font-bold text-slate-950">{value}</div>
+          {subtext && <p className="mt-1 text-xs text-slate-500">{subtext}</p>}
+        </div>
+        <div className={`grid h-10 w-10 place-items-center rounded-lg ${accent}`}>
+          <Icon name={icon} className="h-5 w-5" />
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+export function EmptyState({
+  icon = 'info',
+  title,
+  description,
+  action
+}: {
+  icon?: IconName
+  title: string
+  description: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+      <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-slate-100 text-slate-500">
+        <Icon name={icon} className="h-6 w-6" />
+      </div>
+      <h2 className="mt-4 text-lg font-semibold text-slate-950">{title}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">{description}</p>
+      {action && <div className="mt-5">{action}</div>}
+    </div>
+  )
+}
+
 let toastFn: (msg: string, type?: 'success' | 'error') => void = () => { }
 
 export const toast = {
@@ -60,58 +193,69 @@ export const toast = {
 }
 
 export function Toaster() {
-  const [notif, setNotif] = useState<{ msg: string, type: 'success' | 'error' } | null>(null)
+  const [notif, setNotif] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
   useEffect(() => {
     toastFn = (msg, type = 'success') => {
       setNotif({ msg, type })
-      setTimeout(() => setNotif(null), 3000)
+      window.setTimeout(() => setNotif(null), 3200)
     }
   }, [])
 
   if (!notif) return null
 
   return (
-    <div className="fixed top-6 right-6 z-[200] animate-in slide-in-from-right duration-300">
-      <div className={`px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border ${notif.type === 'success'
-        ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
-        : 'bg-red-50 border-red-100 text-red-800'
-        }`}>
-        {notif.type === 'success' ? (
-          <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-        ) : (
-          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        )}
-        <span className="font-black text-sm uppercase tracking-tight">{notif.msg}</span>
+    <div className="fixed right-4 top-4 z-[200] w-[calc(100%-2rem)] max-w-sm">
+      <div className={`flex items-start gap-3 rounded-lg border p-4 shadow-lg ${notif.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'}`}>
+        <Icon name={notif.type === 'success' ? 'check' : 'alert'} className="mt-0.5 h-5 w-5 flex-none" />
+        <p className="text-sm font-semibold">{notif.msg}</p>
       </div>
     </div>
   )
 }
 
-export function Modal({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: any }) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  description,
+  children
+}: {
+  isOpen: boolean
+  onClose: () => void
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
+  const titleId = useId()
+  const descriptionId = useId()
   if (!isOpen) return null
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
-      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden relative animate-in zoom-in-95 duration-300 border border-slate-100">
-        <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-          <h3 className="font-black text-slate-800 uppercase tracking-tighter text-base">{title}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all group">
-            <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined}>
+      <button className="absolute inset-0 cursor-default bg-slate-950/50 backdrop-blur-sm" onClick={onClose} aria-label="Tutup dialog" />
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 id={titleId} className="text-lg font-semibold text-slate-950">{title}</h2>
+            {description && <p id={descriptionId} className="mt-1 text-sm text-slate-600">{description}</p>}
+          </div>
+          <IconButton label="Tutup" icon="x" onClick={onClose} />
         </div>
-        <div className="p-8">
-          {children}
-        </div>
+        <div className="p-5">{children}</div>
       </div>
     </div>
   )
 }
 
 export function Loader() {
-  return <div className="py-4 text-center text-gray-600">Loading...</div>
+  return <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm font-medium text-slate-600">Memuat data...</div>
 }
 
 export function ErrorAlert({ message }: { message: string }) {
-  return <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded">{message}</div>
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+      <Icon name="alert" className="mt-0.5 h-5 w-5 flex-none" />
+      <span>{message}</span>
+    </div>
+  )
 }

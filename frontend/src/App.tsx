@@ -1,160 +1,138 @@
+import { Suspense, lazy, useMemo, useState } from 'react'
 import { BrowserRouter as Router, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
-import EstimateFormPage from '@pages/EstimateForm'
-import ResultPage from '@pages/Result'
-import AdminDashboardPage from '@pages/AdminDashboard'
-import DashboardPage from '@pages/Dashboard'
-import LoginPage from '@pages/Login'
-import RegisterPage from '@pages/Register'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import Logo from '@components/Logo'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
-import { Toaster } from '@components/UI'
+import Icon from '@components/Icon'
+import { Button, IconButton, Loader, Toaster } from '@components/UI'
 
-function Layout() {
+const EstimateFormPage = lazy(() => import('@pages/EstimateForm'))
+const ResultPage = lazy(() => import('@pages/Result'))
+const AdminDashboardPage = lazy(() => import('@pages/AdminDashboard'))
+const DashboardPage = lazy(() => import('@pages/Dashboard'))
+const LoginPage = lazy(() => import('@pages/Login'))
+const RegisterPage = lazy(() => import('@pages/Register'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+
+function AppShell() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
+  const navLinks = useMemo(() => [
+    { to: '/', label: 'Estimasi', icon: 'home' as const },
+    { to: '/dashboard', label: 'Riwayat', icon: 'clipboard' as const },
+    ...(user?.role === 'ADMIN' ? [{ to: '/admin', label: 'Admin', icon: 'barChart' as const }] : [])
+  ], [user?.role])
+
   const handleLogout = async () => {
     await logout()
-    navigate('/login')
     setIsMenuOpen(false)
+    navigate('/login', { replace: true })
   }
 
-  const navLinks = [
-    { to: '/', label: 'Estimasi' },
-    { to: '/dashboard', label: 'Dashboard' },
-    ...(user?.role === 'ADMIN' ? [{ to: '/admin', label: 'Admin' }] : []),
-  ]
-
   return (
-    <div className="min-h-screen bg-slate-50/50">
-      <header className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <NavLink to="/" onClick={() => setIsMenuOpen(false)}>
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <NavLink to="/" onClick={() => setIsMenuOpen(false)} aria-label="VoltCost beranda">
             <Logo />
           </NavLink>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-8">
-            {navLinks.map(link => (
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Navigasi utama">
+            {navLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
                 className={({ isActive }) =>
-                  `text-sm font-bold transition-all ${isActive ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`
+                  `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${isActive ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`
                 }
               >
+                <Icon name={link.icon} className="h-4 w-4" />
                 {link.label}
               </NavLink>
             ))}
-
-            <div className="h-4 w-px bg-slate-200 mx-2" />
-
-            {user ? (
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-end">
-                  <span className="text-xs font-bold text-slate-900 leading-none">{user.name}</span>
-                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{user.role}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <NavLink to="/login" className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900">Login</NavLink>
-                <NavLink
-                  to="/register"
-                  className="px-5 py-2.5 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all scale-100 hover:scale-105"
-                >
-                  DAFTAR GRATIS
-                </NavLink>
-              </div>
-            )}
           </nav>
 
-          {/* Mobile Menu Toggle */}
-          <button
-            className="md:hidden p-2 text-slate-600"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
-              )}
-            </svg>
-          </button>
+          <div className="hidden items-center gap-3 md:flex">
+            {user ? (
+              <>
+                <div className="max-w-[180px] text-right">
+                  <div className="truncate text-sm font-semibold text-slate-950">{user.name || user.email}</div>
+                  <div className="text-xs font-medium text-slate-500">{user.role}</div>
+                </div>
+                <Button tone="ghost" icon="logOut" onClick={handleLogout}>Keluar</Button>
+              </>
+            ) : (
+              <>
+                <Button tone="ghost" onClick={() => navigate('/login')}>Masuk</Button>
+                <Button icon="logIn" onClick={() => navigate('/register')}>Daftar</Button>
+              </>
+            )}
+          </div>
+
+          <IconButton label="Buka menu" icon={isMenuOpen ? 'x' : 'menu'} className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)} />
         </div>
 
-        {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden bg-white border-b animate-in slide-in-from-top duration-300">
-            <div className="px-4 py-6 space-y-4">
-              {navLinks.map(link => (
+          <div className="border-t border-slate-200 bg-white px-4 py-4 md:hidden">
+            <nav className="grid gap-2" aria-label="Navigasi mobile">
+              {navLinks.map((link) => (
                 <NavLink
                   key={link.to}
                   to={link.to}
                   onClick={() => setIsMenuOpen(false)}
                   className={({ isActive }) =>
-                    `block text-lg font-bold ${isActive ? 'text-blue-600' : 'text-slate-600'}`
+                    `flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold ${isActive ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-100'}`
                   }
                 >
+                  <Icon name={link.icon} className="h-5 w-5" />
                   {link.label}
                 </NavLink>
               ))}
-              <div className="pt-4 border-t">
-                {user ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-                        {user.name?.[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900">{user.name}</div>
-                        <div className="text-xs text-slate-500">{user.email}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl"
-                    >
-                      Logout
-                    </button>
+            </nav>
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              {user ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <div className="font-semibold text-slate-950">{user.name || user.email}</div>
+                    <div className="text-xs text-slate-500">{user.email}</div>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <NavLink
-                      to="/login"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="py-3 text-center font-bold text-slate-600 bg-slate-50 rounded-xl"
-                    >
-                      Login
-                    </NavLink>
-                    <NavLink
-                      to="/register"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="py-3 text-center font-bold text-white bg-blue-600 rounded-xl shadow-lg shadow-blue-100"
-                    >
-                      Daftar
-                    </NavLink>
-                  </div>
-                )}
-              </div>
+                  <Button tone="danger" icon="logOut" className="w-full" onClick={handleLogout}>Keluar</Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button tone="ghost" onClick={() => navigate('/login')}>Masuk</Button>
+                  <Button onClick={() => navigate('/register')}>Daftar</Button>
+                </div>
+              )}
             </div>
           </div>
         )}
       </header>
-      <main className="max-w-6xl mx-auto p-4 md:p-8">
-        <Outlet />
+
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <Suspense fallback={<Loader />}>
+          <Outlet />
+        </Suspense>
       </main>
+    </div>
+  )
+}
+
+function AuthShell() {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+        <NavLink to="/" className="inline-flex w-fit" aria-label="VoltCost beranda">
+          <Logo />
+        </NavLink>
+        <main className="grid flex-1 place-items-center py-8">
+          <Suspense fallback={<Loader />}>
+            <Outlet />
+          </Suspense>
+        </main>
+      </div>
     </div>
   )
 }
@@ -165,15 +143,17 @@ export default function App() {
       <AuthProvider>
         <Toaster />
         <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<EstimateFormPage />} />
-            <Route path="result" element={<ResultPage />} />
-            <Route path="admin" element={<AdminDashboardPage />} />
-            <Route path="dashboard" element={<DashboardPage />} />
+          <Route element={<AuthShell />}>
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
             <Route path="forgot-password" element={<ForgotPassword />} />
             <Route path="reset-password/:token" element={<ResetPassword />} />
+          </Route>
+          <Route element={<AppShell />}>
+            <Route index element={<EstimateFormPage />} />
+            <Route path="result" element={<ResultPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="admin" element={<AdminDashboardPage />} />
           </Route>
         </Routes>
       </AuthProvider>
