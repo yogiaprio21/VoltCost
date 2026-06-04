@@ -6,6 +6,23 @@ export type Material = {
   type: MaterialType
   unit: string
   pricePerUnit: number
+  specification?: string | null
+  brand?: string | null
+  sourceName?: string | null
+  sourceUrl?: string | null
+  sourceType?: 'admin' | 'vendor' | 'market_survey' | 'seed'
+  priceUpdatedAt?: string | null
+  standardRef?: string | null
+  notes?: string | null
+}
+
+export type MaterialCatalogResponse = {
+  data: Material[]
+  meta: {
+    source: string
+    disclaimer: string
+    standardNote: string
+  }
 }
 
 export type EstimateInput = {

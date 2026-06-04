@@ -20,7 +20,32 @@ const tabs: Array<{ id: Tab; label: string }> = [
 ]
 
 const materialTypes: MaterialType[] = ['cable', 'mcb', 'switch', 'socket', 'panel', 'conduit']
-const emptyMaterial: MaterialForm = { name: '', type: 'cable', unit: 'meter', pricePerUnit: 0 }
+const sourceTypeOptions: NonNullable<Material['sourceType']>[] = ['admin', 'vendor', 'market_survey', 'seed']
+const emptyMaterial: MaterialForm = {
+  name: '',
+  type: 'cable',
+  unit: 'meter',
+  pricePerUnit: 0,
+  specification: '',
+  brand: '',
+  sourceName: '',
+  sourceUrl: '',
+  sourceType: 'admin',
+  priceUpdatedAt: '',
+  standardRef: '',
+  notes: ''
+}
+
+const toDateInputValue = (value?: string | null) => {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10)
+}
+
+const normalizeOptional = (value?: string | null) => {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -37,7 +62,7 @@ export default function AdminDashboardPage() {
   const filteredMaterials = useMemo(() => {
     const rows = materialsQuery.data || []
     const query = mFilter.trim().toLowerCase()
-    return query ? rows.filter((m) => `${m.name} ${m.type} ${m.unit}`.toLowerCase().includes(query)) : rows
+    return query ? rows.filter((m) => `${m.name} ${m.type} ${m.unit} ${m.specification || ''} ${m.sourceName || ''} ${m.standardRef || ''}`.toLowerCase().includes(query)) : rows
   }, [mFilter, materialsQuery.data])
 
   const openCreate = () => {
@@ -46,7 +71,20 @@ export default function AdminDashboardPage() {
   }
 
   const openEdit = (material: Material) => {
-    setForm({ name: material.name, type: material.type, unit: material.unit, pricePerUnit: Number(material.pricePerUnit) })
+    setForm({
+      name: material.name,
+      type: material.type,
+      unit: material.unit,
+      pricePerUnit: Number(material.pricePerUnit),
+      specification: material.specification || '',
+      brand: material.brand || '',
+      sourceName: material.sourceName || '',
+      sourceUrl: material.sourceUrl || '',
+      sourceType: material.sourceType || 'admin',
+      priceUpdatedAt: toDateInputValue(material.priceUpdatedAt),
+      standardRef: material.standardRef || '',
+      notes: material.notes || ''
+    })
     setModal({ mode: 'edit', material })
   }
 
@@ -66,7 +104,20 @@ export default function AdminDashboardPage() {
     }
     setSaving(true)
     try {
-      const payload = { ...form, name: form.name.trim(), unit: form.unit.trim(), pricePerUnit: Number(form.pricePerUnit) }
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+        unit: form.unit.trim(),
+        pricePerUnit: Number(form.pricePerUnit),
+        specification: normalizeOptional(form.specification),
+        brand: normalizeOptional(form.brand),
+        sourceName: normalizeOptional(form.sourceName),
+        sourceUrl: normalizeOptional(form.sourceUrl),
+        sourceType: form.sourceType || 'admin',
+        priceUpdatedAt: form.priceUpdatedAt ? new Date(form.priceUpdatedAt).toISOString() : null,
+        standardRef: normalizeOptional(form.standardRef),
+        notes: normalizeOptional(form.notes)
+      }
       if (modal.mode === 'edit' && modal.material) {
         await updateMaterial(modal.material.id, payload)
         toast.success('Material diperbarui.')
@@ -181,23 +232,33 @@ export default function AdminDashboardPage() {
           ) : (
             <Card className="overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-[760px] w-full border-collapse">
+                <table className="min-w-[980px] w-full border-collapse">
                   <thead>
                     <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <th className="border-b border-slate-200 px-4 py-3">Nama item</th>
                       <th className="border-b border-slate-200 px-4 py-3">Kategori</th>
                       <th className="border-b border-slate-200 px-4 py-3">Satuan</th>
                       <th className="border-b border-slate-200 px-4 py-3 text-right">Harga</th>
+                      <th className="border-b border-slate-200 px-4 py-3">Sumber</th>
+                      <th className="border-b border-slate-200 px-4 py-3">Update</th>
                       <th className="border-b border-slate-200 px-4 py-3 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredMaterials.map((material) => (
                       <tr key={material.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm font-semibold text-slate-900">{material.name}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-semibold text-slate-900">{material.name}</div>
+                          {material.specification && <div className="mt-1 max-w-md text-xs leading-5 text-slate-500">{material.specification}</div>}
+                        </td>
                         <td className="px-4 py-3 text-sm text-slate-600">{material.type}</td>
                         <td className="px-4 py-3 text-sm text-slate-600">{material.unit}</td>
                         <td className="px-4 py-3 text-right text-sm font-semibold text-slate-900">{formatCurrency(Number(material.pricePerUnit))}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-slate-700">{material.sourceName || 'Belum diisi'}</div>
+                          <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">{material.sourceType || 'admin'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{material.priceUpdatedAt ? formatDate(material.priceUpdatedAt) : '-'}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             <Button tone="ghost" icon="edit" onClick={() => openEdit(material)}>Edit</Button>
@@ -245,6 +306,7 @@ export default function AdminDashboardPage() {
         onClose={closeModal}
         title={modal.mode === 'edit' ? 'Edit material' : 'Tambah material'}
         description="Perubahan harga material akan memengaruhi estimasi baru."
+        size="lg"
       >
         <div className="space-y-4">
           <Field label="Nama item">
@@ -262,6 +324,38 @@ export default function AdminDashboardPage() {
           </div>
           <Field label="Harga per satuan">
             <Input type="number" min={0} value={form.pricePerUnit} onChange={(e) => setForm((prev) => ({ ...prev, pricePerUnit: Math.max(0, Number(e.target.value) || 0) }))} />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Spesifikasi">
+              <Input value={form.specification || ''} onChange={(e) => setForm((prev) => ({ ...prev, specification: e.target.value }))} placeholder="Contoh: NYM 2x1.5 mm2" />
+            </Field>
+            <Field label="Merek">
+              <Input value={form.brand || ''} onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))} placeholder="Umum/vendor" />
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Sumber harga">
+              <Input value={form.sourceName || ''} onChange={(e) => setForm((prev) => ({ ...prev, sourceName: e.target.value }))} placeholder="Nama toko/vendor/katalog" />
+            </Field>
+            <Field label="Jenis sumber">
+              <Select value={form.sourceType || 'admin'} onChange={(e) => setForm((prev) => ({ ...prev, sourceType: e.target.value as Material['sourceType'] }))}>
+                {sourceTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+              </Select>
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="URL sumber" hint="Opsional">
+              <Input value={form.sourceUrl || ''} onChange={(e) => setForm((prev) => ({ ...prev, sourceUrl: e.target.value }))} placeholder="https://..." />
+            </Field>
+            <Field label="Tanggal update harga" hint="Opsional">
+              <Input type="date" value={form.priceUpdatedAt || ''} onChange={(e) => setForm((prev) => ({ ...prev, priceUpdatedAt: e.target.value }))} />
+            </Field>
+          </div>
+          <Field label="Referensi teknis">
+            <Input value={form.standardRef || ''} onChange={(e) => setForm((prev) => ({ ...prev, standardRef: e.target.value }))} placeholder="Contoh: PUIL 2011, SLO ESDM" />
+          </Field>
+          <Field label="Catatan">
+            <Input value={form.notes || ''} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Keterangan asumsi harga dan batas penggunaan" />
           </Field>
           <div className="flex justify-end gap-3 pt-2">
             <Button tone="ghost" disabled={saving} onClick={closeModal}>Batal</Button>

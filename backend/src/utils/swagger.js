@@ -19,7 +19,15 @@ const openapi = {
           name: { type: 'string' },
           type: { type: 'string', enum: ['cable', 'mcb', 'switch', 'socket', 'panel', 'conduit'] },
           unit: { type: 'string' },
-          pricePerUnit: { type: 'number' }
+          pricePerUnit: { type: 'number' },
+          specification: { type: 'string', nullable: true },
+          brand: { type: 'string', nullable: true },
+          sourceName: { type: 'string', nullable: true },
+          sourceUrl: { type: 'string', nullable: true },
+          sourceType: { type: 'string', enum: ['admin', 'vendor', 'market_survey', 'seed'] },
+          priceUpdatedAt: { type: 'string', format: 'date-time', nullable: true },
+          standardRef: { type: 'string', nullable: true },
+          notes: { type: 'string', nullable: true }
         }
       },
       CreateMaterialInput: {
@@ -29,7 +37,29 @@ const openapi = {
           name: { type: 'string' },
           type: { type: 'string', enum: ['cable', 'mcb', 'switch', 'socket', 'panel', 'conduit'] },
           unit: { type: 'string' },
-          pricePerUnit: { type: 'number' }
+          pricePerUnit: { type: 'number' },
+          specification: { type: 'string', nullable: true },
+          brand: { type: 'string', nullable: true },
+          sourceName: { type: 'string', nullable: true },
+          sourceUrl: { type: 'string', nullable: true },
+          sourceType: { type: 'string', enum: ['admin', 'vendor', 'market_survey', 'seed'] },
+          priceUpdatedAt: { type: 'string', format: 'date-time', nullable: true },
+          standardRef: { type: 'string', nullable: true },
+          notes: { type: 'string', nullable: true }
+        }
+      },
+      MaterialCatalogResponse: {
+        type: 'object',
+        properties: {
+          data: { type: 'array', items: { $ref: '#/components/schemas/Material' } },
+          meta: {
+            type: 'object',
+            properties: {
+              source: { type: 'string' },
+              disclaimer: { type: 'string' },
+              standardNote: { type: 'string' }
+            }
+          }
         }
       },
       EstimateInput: {
@@ -82,6 +112,12 @@ const openapi = {
         summary: 'Create material',
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateMaterialInput' } } } },
         responses: { '201': { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/Material' } } } } }
+      }
+    },
+    '/materials/catalog': {
+      get: {
+        summary: 'Get public material price catalog',
+        responses: { '200': { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/MaterialCatalogResponse' } } } } }
       }
     },
     '/materials/{id}': {

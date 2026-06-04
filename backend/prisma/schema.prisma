@@ -28,6 +28,14 @@ model Material {
   type         MaterialType
   unit         String
   pricePerUnit Decimal       @db.Decimal(12,2)
+  specification String?
+  brand        String?
+  sourceName   String?
+  sourceUrl    String?
+  sourceType   String        @default("seed")
+  priceUpdatedAt DateTime?
+  standardRef  String?
+  notes        String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   @@unique([name, type], name: "name_type")

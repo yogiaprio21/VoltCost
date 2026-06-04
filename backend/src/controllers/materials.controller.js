@@ -7,6 +7,18 @@ const getAll = asyncHandler(async (req, res) => {
   res.json(items);
 });
 
+const getCatalog = asyncHandler(async (req, res) => {
+  const items = await materialsService.listPublicCatalog();
+  res.json({
+    data: items,
+    meta: {
+      source: 'Katalog harga material VoltCost',
+      disclaimer: 'Harga bersifat estimasi pasar/admin dan dapat berbeda menurut merek, wilayah, vendor, dan waktu survei.',
+      standardNote: 'Rujukan teknis keselamatan mengacu pada prinsip PUIL 2011 dan ketentuan SLO ESDM; PUIL/ESDM bukan sumber harga material.'
+    }
+  });
+});
+
 const create = asyncHandler(async (req, res) => {
   const item = await materialsService.createMaterial(req.body);
 
@@ -50,4 +62,4 @@ const remove = asyncHandler(async (req, res) => {
   res.status(204).send();
 });
 
-module.exports = { getAll, create, update, remove }
+module.exports = { getAll, getCatalog, create, update, remove }

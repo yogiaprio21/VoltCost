@@ -1,6 +1,7 @@
 const generateEstimatePdf = require('../utils/pdf').generateEstimatePdf;
 const service = require('../services/estimate.service');
 const logService = require('../services/log.service');
+const materialsService = require('../services/materials.service');
 const { ApiError } = require('../middleware/errorHandler');
 const asyncHandler = require('../utils/asyncHandler');
 
@@ -33,7 +34,8 @@ const pdf = asyncHandler(async (req, res, next) => {
   if (!service.canAccessEstimation(estimation, req.user)) {
     throw new ApiError(403, 'Anda tidak memiliki akses untuk mengunduh estimasi ini');
   }
-  generateEstimatePdf(res, estimation);
+  const materialCatalog = await materialsService.listPublicCatalog();
+  generateEstimatePdf(res, estimation, { materialCatalog });
 });
 
 const update = asyncHandler(async (req, res) => {

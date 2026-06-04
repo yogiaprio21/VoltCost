@@ -1,10 +1,25 @@
 const { z } = require('zod');
 
+const optionalText = z.preprocess((value) => value === '' ? null : value, z.string().optional().nullable());
+const optionalUrl = z.preprocess((value) => value === '' ? null : value, z.string().url().optional().nullable());
+const optionalDate = z.preprocess(
+  (value) => value === '' ? null : value,
+  z.string().datetime().optional().nullable()
+).transform((value) => value ? new Date(value) : null);
+
 const materialSchema = z.object({
   name: z.string().min(1),
   type: z.enum(['cable', 'mcb', 'switch', 'socket', 'panel', 'conduit']),
   unit: z.string().min(1),
-  pricePerUnit: z.number().nonnegative()
+  pricePerUnit: z.number().nonnegative(),
+  specification: optionalText,
+  brand: optionalText,
+  sourceName: optionalText,
+  sourceUrl: optionalUrl,
+  sourceType: z.enum(['admin', 'vendor', 'market_survey', 'seed']).default('admin'),
+  priceUpdatedAt: optionalDate,
+  standardRef: optionalText,
+  notes: optionalText
 });
 
 const estimateInputSchema = z.object({

@@ -5,11 +5,13 @@ const estimateRoutes = require('./estimate.routes');
 const analyticsRoutes = require('./analytics.routes');
 const logRoutes = require('./log.routes');
 const swagger = require('../utils/swagger');
+const materialsController = require('../controllers/materials.controller');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.use('/auth', authRoutes);
+router.get('/materials/catalog', materialsController.getCatalog);
 router.use('/materials', authenticate, authorize('ADMIN'), materialsRoutes);
 router.use('/estimate', estimateRoutes);
 router.use('/analytics', authenticate, authorize('ADMIN'), analyticsRoutes);

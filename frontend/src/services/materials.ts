@@ -1,8 +1,13 @@
 import { api } from './api'
-import type { Material } from '@app-types/index'
+import type { Material, MaterialCatalogResponse } from '@app-types/index'
 
 export async function getMaterials() {
   const { data } = await api.get<Material[]>('/materials')
+  return data
+}
+
+export async function getMaterialCatalog() {
+  const { data } = await api.get<MaterialCatalogResponse>('/materials/catalog')
   return data
 }
 

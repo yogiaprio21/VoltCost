@@ -108,8 +108,24 @@ export function IconButton({
   )
 }
 
-export function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-lg border border-slate-200 bg-white shadow-sm ${className}`}>{children}</section>
+type CardVariant = 'surface' | 'dark' | 'subtle'
+
+const cardVariants: Record<CardVariant, string> = {
+  surface: 'border-slate-200 bg-white text-slate-950 shadow-sm',
+  dark: 'border-slate-800 bg-slate-950 text-white shadow-sm',
+  subtle: 'border-slate-200 bg-slate-50 text-slate-950 shadow-sm'
+}
+
+export function Card({
+  children,
+  className = '',
+  variant = 'surface'
+}: {
+  children: React.ReactNode
+  className?: string
+  variant?: CardVariant
+}) {
+  return <section className={`rounded-lg border ${cardVariants[variant]} ${className}`}>{children}</section>
 }
 
 export function PageHeader({
@@ -219,13 +235,15 @@ export function Modal({
   onClose,
   title,
   description,
-  children
+  children,
+  size = 'md'
 }: {
   isOpen: boolean
   onClose: () => void
   title: string
   description?: string
   children: React.ReactNode
+  size?: 'md' | 'lg'
 }) {
   const titleId = useId()
   const descriptionId = useId()
@@ -233,7 +251,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined}>
       <button className="absolute inset-0 cursor-default bg-slate-950/50 backdrop-blur-sm" onClick={onClose} aria-label="Tutup dialog" />
-      <div className="relative w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
+      <div className={`relative w-full ${size === 'lg' ? 'max-w-2xl' : 'max-w-md'} overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl`}>
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div>
             <h2 id={titleId} className="text-lg font-semibold text-slate-950">{title}</h2>
